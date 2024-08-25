@@ -12,3 +12,7 @@ PyGithub==1.55
 pydantic_core==2.20.1
 click
 cmd2
+openai
+gradio
+loguru
+python-daemon
