@@ -1,13 +1,10 @@
 import gradio as gr
-import os
 from config import Config
 from github_client import GitHubClient
 from report_generator import ReportGenerator
 from llm import LLM
 from subscription_manager import SubscriptionManager
 from logger import LOG
-import random
-import tempfile
 
 # 創建各個組件的實例
 config = Config()
