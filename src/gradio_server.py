@@ -1,13 +1,15 @@
-import gradio as gr  # 导入gradio库用于创建GUI
+import gradio as gr
+import os
+from config import Config
+from github_client import GitHubClient
+from report_generator import ReportGenerator
+from llm import LLM
+from subscription_manager import SubscriptionManager
+from logger import LOG
+import random
+import tempfile
 
-from config import Config  # 导入配置管理模块
-from github_client import GitHubClient  # 导入用于GitHub API操作的客户端
-from report_generator import ReportGenerator  # 导入报告生成器模块
-from llm import LLM  # 导入可能用于处理语言模型的LLM类
-from subscription_manager import SubscriptionManager  # 导入订阅管理器
-from logger import LOG  # 导入日志记录器
-
-# 创建各个组件的实例
+# 創建各個組件的實例
 config = Config()
 github_client = GitHubClient(config.github_token)
 llm = LLM()
@@ -15,27 +17,67 @@ report_generator = ReportGenerator(llm)
 subscription_manager = SubscriptionManager(config.subscriptions_file)
 
 def export_progress_by_date_range(repo, days):
-    # 定义一个函数，用于导出和生成指定时间范围内项目的进展报告
-    raw_file_path = github_client.export_progress_by_date_range(repo, days)  # 导出原始数据文件路径
-    report, report_file_path = report_generator.generate_report_by_date_range(raw_file_path, days)  # 生成并获取报告内容及文件路径
+    try:
+        raw_file_path = github_client.export_progress_by_date_range(repo, days)
+        report, report_file_path = report_generator.generate_report_by_date_range(raw_file_path, days)
+        return report, report_file_path
+    except Exception as e:
+        LOG.error(f"Error in export_progress_by_date_range: {str(e)}")
+        raise
 
-    return report, report_file_path  # 返回报告内容和报告文件路径
+def generate_report(repo, days):
+    try:
+        LOG.info(f"Generating report for repo: {repo}, days: {days}")
+        report, report_file_path = export_progress_by_date_range(repo, days)
+        LOG.info(f"Generated report file: {report_file_path}")
+        return report, gr.update(visible=True), report_file_path
+    except Exception as e:
+        LOG.error(f"Error generating report: {str(e)}")
+        return f"生成報告時出錯: {str(e)}", gr.update(visible=False), None
 
-# 创建Gradio界面
-demo = gr.Interface(
-    fn=export_progress_by_date_range,  # 指定界面调用的函数
-    title="GitHubSentinel",  # 设置界面标题
-    inputs=[
-        gr.Dropdown(
-            subscription_manager.list_subscriptions(), label="订阅列表", info="已订阅GitHub项目"
-        ),  # 下拉菜单选择订阅的GitHub项目
-        gr.Slider(value=2, minimum=1, maximum=7, step=1, label="报告周期", info="生成项目过去一段时间进展，单位：天"),
-        # 滑动条选择报告的时间范围
-    ],
-    outputs=[gr.Markdown(), gr.File(label="下载报告")],  # 输出格式：Markdown文本和文件下载
-)
+def validate_inputs(repo, days):
+    if not repo:
+        return "請選擇一個 GitHub 項目", gr.update(visible=False)
+    if days < 1 or days > 30:
+        return "請選擇 1 到 30 天之間的時間範圍", gr.update(visible=False)
+    return None, gr.update(visible=False)
+
+with gr.Blocks(title="GitHub 項目進度報告生成器", theme=gr.themes.Soft()) as demo:
+    gr.Markdown("# GitHub 項目進度報告生成器")
+    
+    with gr.Row():
+        with gr.Column(scale=2):
+            repo = gr.Dropdown(subscription_manager.list_subscriptions(),
+                label="選擇 GitHub 項目",
+                info="從已訂閱的項目中選擇")
+            days = gr.Slider(minimum=1, maximum=30, value=1, step=1, label="報告時間範圍 (天)")
+            generate_btn = gr.Button("生成報告")
+            with gr.Accordion("使用說明", open=False):
+                gr.Markdown("""
+                1. 在下拉菜單中選擇或輸入 GitHub 項目名稱（格式：用戶名/項目名）
+                2. 使用滑塊選擇要分析的時間範圍（1-30天）
+                3. 點擊"生成報告"按鈕
+                4. 等待報告生成完成
+                5. 在右側查看報告預覽，並使用下方的"下載完整報告"按鈕獲取完整報告
+                """)
+            download_btn = gr.DownloadButton("下載完整報告", visible=False)
+            error_output = gr.Textbox(label="錯誤信息", visible=False)
+        
+        with gr.Column(scale=3):
+            output = gr.Markdown(label="報告預覽")
+
+    generate_btn.click(
+        fn=validate_inputs,
+        inputs=[repo, days],
+        outputs=[error_output, download_btn]
+    ).success(
+        fn=generate_report,
+        inputs=[repo, days],
+        outputs=[output, download_btn, download_btn],
+        show_progress=True
+    )
 
 if __name__ == "__main__":
-    demo.launch(share=True, server_name="0.0.0.0")  # 启动界面并设置为公共可访问
-    # 可选带有用户认证的启动方式
-    # demo.launch(share=True, server_name="0.0.0.0", auth=("django", "1234"))
+    demo.launch(share=True, server_name="0.0.0.0")
+    # 可選帶有用戶認證的啟動方式
+    # demo.launch(share=True, server_name="0.0.0.0", auth=("username", "password"))
