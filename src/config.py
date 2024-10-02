@@ -9,15 +9,26 @@ class Config:
         with open('config.json', 'r') as f:
             config = json.load(f)
 
-            # 優先使用環境變量中的 GitHub token，如果不存在，則使用 config.json 中的值
-            self.github_token = os.environ.get('GITHUB_TOKEN') or config.get('github_token')
+            self.email = config.get('email', {})
+            self.email['password'] = os.getenv('EMAIL_PASSWORD', self.email.get('password', ''))
 
-            # 如果兩者都不存在，拋出異常
-            if not self.github_token:
-                raise ValueError("GitHub token not found in environment variables or config.json")
+            # 加载 GitHub 相关配置
+            github_config = config.get('github', {})
+            self.github_token = os.getenv('GITHUB_TOKEN', github_config.get('token'))
+            self.subscriptions_file = github_config.get('subscriptions_file')
+            self.freq_days = github_config.get('progress_frequency_days', 1)
+            self.exec_time = github_config.get('progress_execution_time', "08:00")
 
-            # 其他配置保持不變
-            self.notification_settings = config.get('notification_settings')
-            self.subscriptions_file = config.get('subscriptions_file')
-            self.update_interval = config.get('update_interval', 24 * 60 * 60)  # Default to 24 hours
+            # 加载 LLM 相关配置
+            llm_config = config.get('llm', {})
+            self.llm_model_type = llm_config.get('model_type', 'openai')
+            self.openai_model_name = llm_config.get('openai_model_name', 'gpt-4o-mini')
+            self.ollama_model_name = llm_config.get('ollama_model_name', 'llama3')
+            self.ollama_api_url = llm_config.get('ollama_api_url', 'http://localhost:11434/api/chat')
 
+            # 加载报告类型配置
+            self.report_types = config.get('report_types', ["github", "hacker_news"])  # 默认报告类型
+
+            # 加载 Slack 配置
+            slack_config = config.get('slack', {})
+            self.slack_webhook_url = slack_config.get('webhook_url')
