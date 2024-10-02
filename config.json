@@ -10,5 +10,11 @@
     "slack_webhook_url": "your_slack_webhook_url",
     "subscriptions_file": "subscriptions.json",
     "github_progress_frequency_days": 1,
-    "github_progress_execution_time":"08:00"
+    "github_progress_execution_time": "08:00",
+    "hacker_news": {
+        "enabled": true,
+        "check_frequency_hours": 6,
+        "execution_time": "00:00,06:00,12:00,18:00",
+        "top_stories_limit": 30
+    }
 }

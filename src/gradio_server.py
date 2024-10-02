@@ -27,7 +27,7 @@ demo = gr.Interface(
     title="GitHubSentinel",  # 设置界面标题
     inputs=[
         gr.Dropdown(
-            subscription_manager.list_subscriptions(), label="订阅列表", info="已订阅GitHub项目"
+            subscription_manager.list_github_subscriptions(), label="订阅列表", info="已订阅GitHub项目"
         ),  # 下拉菜单选择订阅的GitHub项目
         gr.Slider(value=2, minimum=1, maximum=7, step=1, label="报告周期", info="生成项目过去一段时间进展，单位：天"),
         # 滑动条选择报告的时间范围

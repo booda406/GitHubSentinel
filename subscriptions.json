@@ -1,4 +1,10 @@
-[
-    "ollama/ollama",
-    "vllm-project/vllm"
-]
+{
+    "github": [
+        "ollama/ollama",
+        "vllm-project/vllm"
+    ],
+    "hacker_news": {
+        "enabled": true,
+        "keywords": ["AI", "Product", "Cloud", "Nvidia"]
+    }
+}

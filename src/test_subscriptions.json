@@ -1,0 +1,13 @@
+{
+    "github": [
+        "microsoft/vscode"
+    ],
+    "hacker_news": {
+        "enabled": true,
+        "keywords": [
+            "AI",
+            "Python",
+            "Blockchain"
+        ]
+    }
+}
