@@ -13,7 +13,7 @@
         "to": "test@zaijidata.com"
     },
     "llm": {
-        "model_type": "ollama",
+        "model_type": "openai",
         "openai_model_name": "gpt-4o-mini",
         "ollama_model_name": "llama3.1",
         "ollama_api_url": "http://localhost:11434/api/chat"
@@ -21,9 +21,15 @@
     "report_types": [
         "github",
         "hacker_news_hours_topic",
-        "hacker_news_daily_report"
+        "hacker_news_daily_report",
+        "linkedin"
     ],
     "slack": {
         "webhook_url": "your_slack_webhook_url"
+    },
+    "linkedin": {
+        "token": "your_linkedin_token",
+        "keywords": "NVIDIA,AMD",
+        "location": "Taiwan"
     }
 }

@@ -76,6 +76,32 @@ class ReportGenerator:
         LOG.info(f"Hacker News 每日汇总报告已保存到 {report_file_path}")
         return report, report_file_path
 
+    def generate_linkedin_report(self, markdown_file_path):
+        """
+        生成 LinkedIn 职位列表的报告，并保存为 {original_filename}_linkedin_report.md。
+        """
+        return self._generate_report(markdown_file_path, "linkedin", "_linkedin_report.md")
+
+    def _generate_report(self, markdown_file_path, report_type, suffix):
+        """
+        通用报告生成方法。
+        """
+        with open(markdown_file_path, 'r') as file:
+            markdown_content = file.read()
+
+        system_prompt = self.prompts.get(report_type)
+        if not system_prompt:
+            LOG.error(f"未找到报告类型的提示: {report_type}")
+            raise ValueError(f"报告类型无效: {report_type}")
+
+        report = self.llm.generate_report(system_prompt, markdown_content)
+
+        report_file_path = os.path.splitext(markdown_file_path)[0] + suffix
+        with open(report_file_path, 'w+') as report_file:
+            report_file.write(report)
+
+        LOG.info(f"{report_type.capitalize()} 报告已保存到 {report_file_path}")
+        return report, report_file_path
 
     def _aggregate_topic_reports(self, directory_path):
         """
@@ -97,9 +123,14 @@ if __name__ == '__main__':
     llm = LLM(config)
     report_generator = ReportGenerator(llm, config.report_types)
 
-    # hn_hours_file = "./hacker_news/2024-09-01/14.md"
-    hn_daily_dir = "./hacker_news/2024-09-01/"
+    # # hn_hours_file = "./hacker_news/2024-09-01/14.md"
+    # hn_daily_dir = "./hacker_news/2024-09-01/"
 
-    # report, report_file_path = report_generator.generate_hn_topic_report(hn_hours_file)
-    report, report_file_path = report_generator.generate_hn_daily_report(hn_daily_dir)
+    # # report, report_file_path = report_generator.generate_hn_topic_report(hn_hours_file)
+    # report, report_file_path = report_generator.generate_hn_daily_report(hn_daily_dir)
+    # LOG.debug(report)
+
+    # LinkedIn report generation test
+    linkedin_file = "./daily_progress/linkedin_jobs/2024-10-10/jobs.md"
+    report, report_file_path = report_generator.generate_linkedin_report(linkedin_file)
     LOG.debug(report)

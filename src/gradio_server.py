@@ -3,6 +3,7 @@ import gradio as gr  # 导入gradio库用于创建GUI
 from config import Config  # 导入配置管理模块
 from github_client import GitHubClient  # 导入用于GitHub API操作的客户端
 from hacker_news_client import HackerNewsClient
+from linkedin_client import LinkedInClient
 from report_generator import ReportGenerator  # 导入报告生成器模块
 from llm import LLM  # 导入可能用于处理语言模型的LLM类
 from subscription_manager import SubscriptionManager  # 导入订阅管理器
@@ -13,6 +14,7 @@ config = Config()
 github_client = GitHubClient(config.github_token)
 hacker_news_client = HackerNewsClient() # 创建 Hacker News 客户端实例
 subscription_manager = SubscriptionManager(config.subscriptions_file)
+linkedin_client = LinkedInClient(config.linkedin_token)
 
 def generate_github_report(model_type, model_name, repo, days):
     config.llm_model_type = model_type
@@ -47,6 +49,22 @@ def generate_hn_hour_topic(model_type, model_name):
 
     return report, report_file_path  # 返回报告内容和报告文件路径
 
+def generate_linkedin_report(model_type, model_name, keywords, location):
+    config.llm_model_type = model_type
+
+    if model_type == "openai":
+        config.openai_model_name = model_name
+    else:
+        config.ollama_model_name = model_name
+
+    llm = LLM(config)  # Create language model instance
+    report_generator = ReportGenerator(llm, config.report_types)  # Create report generator instance
+
+    # Fetch and export LinkedIn jobs
+    markdown_file_path = linkedin_client.export_jobs(keywords, location)
+    report, report_file_path = report_generator.generate_linkedin_report(markdown_file_path)
+
+    return report, report_file_path  # Return report content and report file path
 
 # 定义一个回调函数，用于根据 Radio 组件的选择返回不同的 Dropdown 选项
 def update_model_list(model_type):
@@ -110,7 +128,32 @@ with gr.Blocks(title="GitHubSentinel") as demo:
         # 将按钮点击事件与导出函数绑定
         button.click(generate_hn_hour_topic, inputs=[model_type, model_name,], outputs=[markdown_output, file_output])
 
+    # Create LinkedIn Job Reports Tab
+    with gr.Tab("LinkedIn Job Reports"):
+        gr.Markdown("## LinkedIn Job Reports")  # Add a subtitle
 
+        # Create Radio component
+        model_type = gr.Radio(["openai", "ollama"], label="Model Type", info="Use OpenAI GPT API or Ollama private model service")
+
+        # Create Dropdown component
+        model_name = gr.Dropdown(choices=["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"], label="Select Model")
+
+        # Create Textbox components for keywords and location
+        keywords_input = gr.Textbox(value="NVIDIA,AMD", label="Keywords", info="Enter keywords for job search")
+        location_input = gr.Textbox(value="Taiwan", label="Location", info="Enter location for job search")
+
+        # Use radio component value to update dropdown component options
+        model_type.change(fn=update_model_list, inputs=model_type, outputs=model_name)
+
+        # Create button to generate report
+        button = gr.Button("Generate LinkedIn Report")
+
+        # Set output components
+        markdown_output = gr.Markdown()
+        file_output = gr.File(label="Download Report")
+
+        # Bind button click event to the export function
+        button.click(generate_linkedin_report, inputs=[model_type, model_name, keywords_input, location_input], outputs=[markdown_output, file_output])
 
 if __name__ == "__main__":
     demo.launch(share=True, server_name="0.0.0.0")  # 启动界面并设置为公共可访问
