@@ -4,20 +4,20 @@ import unittest
 from unittest.mock import patch, MagicMock
 from io import StringIO
 
-# 将 src 目录添加到模块搜索路径，方便导入项目中的模块
+# Add src directory to module search path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
-from config import Config  # 导入配置类
-from notifier import Notifier  # 导入要测试的 Notifier 类
-from logger import LOG  # 导入日志记录器
+from config import Config  # Import the Config class
+from notifier import Notifier  # Import the Notifier class
+from logger import LOG  # Import the logger
 
 class TestNotifier(unittest.TestCase):
     def setUp(self):
         """
-        在每个测试方法之前运行，初始化 Notifier 实例和测试数据，并设置日志捕获。
+        Run before each test method to initialize Notifier instance and test data, and set up log capture.
         """
         self.config = Config()
-        self.notifier = Notifier(self.config.email)
+        self.notifier = Notifier(self.config.email, self.config.slack_webhook_url)
         self.test_repo = "DjangoPeng/openai-quickstart"
         self.test_github_report = """
         # DjangoPeng/openai-quickstart 项目进展
@@ -38,14 +38,23 @@ class TestNotifier(unittest.TestCase):
 
         ## Top 1：硬盘驱动器的讨论引发热门讨论
         """
+        self.test_linkedin_report = """
+        # LinkedIn Job Listings
 
-        # 设置日志捕获
+        ## Date: 2024-09-01
+
+        ## New Jobs
+        - Software Engineer at LinkedIn
+        - Data Scientist at NVIDIA
+        """
+
+        # Set up log capture
         self.log_capture = StringIO()
         self.capture_id = LOG.add(self.log_capture, level="INFO")
 
     def tearDown(self):
         """
-        在每个测试方法之后运行，移除日志捕获。
+        Run after each test method to remove log capture.
         """
         LOG.remove(self.capture_id)
         self.log_capture.close()
@@ -53,30 +62,47 @@ class TestNotifier(unittest.TestCase):
     @patch('smtplib.SMTP_SSL')
     def test_notify_github_report_success(self, mock_smtp):
         """
-        测试在邮件配置正确的情况下，GitHub 报告邮件是否成功发送，并检查日志输出。
+        Test if GitHub report email is successfully sent when email settings are correct, and check log output.
         """
-        # 执行邮件发送
+        # Execute email sending
         self.notifier.notify_github_report(self.test_repo, self.test_github_report)
 
-        # 获取并检查日志内容
+        # Get and check log content
         log_content = self.log_capture.getvalue()
         self.assertIn("邮件发送成功！", log_content)
 
     @patch('smtplib.SMTP_SSL')
     def test_notify_hn_report_success(self, mock_smtp):
         """
-        测试在邮件配置正确的情况下，Hacker News 报告邮件是否成功发送，并检查日志输出。
+        Test if Hacker News report email is successfully sent when email settings are correct, and check log output.
         """
-        # 执行邮件发送
+        # Execute email sending
         self.notifier.notify_hn_report("2024-09-01", self.test_hn_report)
 
-        # 获取并检查日志内容
+        # Get and check log content
         log_content = self.log_capture.getvalue()
         self.assertIn("邮件发送成功！", log_content)
 
+    @patch('requests.post')
+    def test_notify_linkedin_report_success(self, mock_post):
+        """
+        Test if LinkedIn report Slack message is successfully sent when Slack webhook URL is provided, and check log output.
+        """
+        # Mock Slack API response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+
+        # Execute Slack notification
+        self.notifier.notify_linkedin_report(self.test_linkedin_report)
+
+        # Get and check log content
+        log_content = self.log_capture.getvalue()
+        self.assertIn("LinkedIn Slack 消息发送成功！", log_content)
+
     def test_notify_without_email_settings(self):
         """
-        测试当邮件设置未正确配置时，Notifier 是否不会发送邮件并记录相应的警告日志。
+        Test if Notifier does not send email and logs a warning when email settings are not configured correctly.
         """
         faulty_notifier = Notifier(None)
         faulty_notifier.notify_github_report(self.test_repo, self.test_github_report)
@@ -84,6 +110,15 @@ class TestNotifier(unittest.TestCase):
         log_content = self.log_capture.getvalue()
         self.assertIn("邮件设置未配置正确", log_content)
 
+    def test_notify_without_slack_webhook(self):
+        """
+        Test if Notifier does not send Slack message and logs a warning when Slack webhook URL is not configured.
+        """
+        faulty_notifier = Notifier(self.config.email, None)
+        faulty_notifier.notify_linkedin_report(self.test_linkedin_report)
+
+        log_content = self.log_capture.getvalue()
+        self.assertIn("Slack Webhook URL 未配置", log_content)
 
 if __name__ == '__main__':
     unittest.main()
